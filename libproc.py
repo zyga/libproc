@@ -40,6 +40,7 @@ from __future__ import (
 import ctypes
 import ctypes.util
 import os
+import sys
 import unittest
 
 __version__ = '0.1'
@@ -66,20 +67,31 @@ __all__ = (
     'get_pids_for_tty',
 )
 
-# This is the libproc.dylib library.  It is also linked into libc and
-# libSystem. If you already hold a reference to either of those, you can use
-# that as well.
-_libproc_path = ctypes.util.find_library("libproc.dylib")
-_libproc = ctypes.CDLL(_libproc_path, use_errno=True)
 
-
-def __proc_info_errcheck(result, func, arguments):
-    """Error checker for __proc_info()."""
-    proc_errno = ctypes.get_errno()
-    if proc_errno != 0:
-        raise OSError(proc_errno, os.strerror(proc_errno))
-    return result
-
+if sys.platform != 'darwin':
+    # NOTE: This mainly is here so that readthedocs can import
+    # and build the documentation of this module.
+    def __proc_info(callnum, pid, flavor, arg, buffer, buf_size):
+        """Fake function available on non-darwin systems."""
+        raise NotImplementedError("__proc_info() is only supported on OS X")
+else:
+    def __proc_info_errcheck(result, func, arguments):
+        """Error checker for __proc_info()."""
+        proc_errno = ctypes.get_errno()
+        if proc_errno != 0:
+            raise OSError(proc_errno, os.strerror(proc_errno))
+        return result
+    # This is the libproc.dylib library.  It is also linked into libc and
+    # libSystem. If you already hold a reference to either of those, you can
+    # use that as well.
+    _libproc_path = ctypes.util.find_library("libproc.dylib")
+    _libproc = ctypes.CDLL(_libproc_path, use_errno=True)
+    __proc_info = _libproc['__proc_info']
+    __proc_info.restype = ctypes.c_int
+    __proc_info.argtypes = [
+        ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_uint64,
+        ctypes.c_void_p, ctypes.c_int]
+    __proc_info.errcheck = __proc_info_errcheck
 
 #: The proc_info() low-level system call.
 #:
@@ -94,19 +106,14 @@ def __proc_info_errcheck(result, func, arguments):
 #:          buf_size: ctypes.c_int
 #:     ) -> ctypes.c_int
 #:
-#: There is also an error checker that raises :class:`python:OSError` if the
-#: underlying call fails. This is easy to do if the buffer is handled
+#: There is also an error checker that raises :class:`python:OSError` if
+#: the underlying call fails. This is easy to do if the buffer is handled
 #: incorrectly or *callnum* or *pid* are invalid.
 #:
 #: This function uses multiplexing on *callnum* to invoke distinct kernel
 #: functions. Please look at the *PROC_CALLNUM_xxx* family of constants
 #: for details.
-proc_info = _libproc['__proc_info']
-proc_info.restype = ctypes.c_int
-proc_info.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_int,
-                      ctypes.c_uint64, ctypes.c_void_p, ctypes.c_int]
-proc_info.errcheck = __proc_info_errcheck
-
+proc_info = __proc_info
 
 # NOTE: Those are found in xnu source code in proc_info_internal()
 #: Value of __proc_info(callnum, ...), returns a list of PIDs.
