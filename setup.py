@@ -39,7 +39,7 @@ setup(
     author='Zygmunt Krynicki',
     author_email='me@zygoon.pl',
     url='https://github.com/zyga/libproc',
-    py_modules='libproc',
+    py_modules=['libproc'],
     test_suite='libproc',
     include_package_data=False,
     license="LGPLv3",
