@@ -43,7 +43,7 @@ import os
 import sys
 import unittest
 
-__version__ = '0.1'
+__version__ = '0.2'
 __all__ = (
     'proc_info',
     'PROC_CALLNUM_LISTPIDS',
